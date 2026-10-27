@@ -7,17 +7,21 @@ y declara `displayTest="IGNORE_SERVER_VERSION"`, asi que los jugadores entran co
 sin instalar nada. Todo lo que ven (prefijos, ping en el tab, mensajes) viaja con paquetes normales.
 Ojo: si el servidor tiene OTROS mods que si necesiten estar en el cliente, los jugadores tendran que instalar esos.
 
-## Compilar
-Requiere JDK 17. Lo mas seguro es usar el MDK oficial:
-1. Descarga el MDK de Forge 1.20.1-47.4.20 (files.minecraftforge.net).
-2. Copia dentro del MDK `src/main/java` y `src/main/resources` de este proyecto (sustituyendo los de ejemplo).
-   Si usas el `build.gradle` de este proyecto, usa tambien el wrapper de Gradle del MDK.
-3. `./gradlew build` -> el jar queda en `build/libs/`.
-4. Pon el jar en `mods/` del servidor.
+## Obtener el .jar
+Requiere JDK 17 y Gradle 8.1.1 (o el wrapper del MDK de Forge 1.20.1-47.4.20).
+
+**Opcion A, sin instalar nada (GitHub Actions):**
+1. Crea un repositorio en GitHub y sube todo el contenido de esta carpeta (incluida `.github`).
+2. Pestana *Actions* -> *Compilar mod* (se lanza solo al subir, o con *Run workflow*).
+3. Al terminar, descarga el artefacto `permscmds-jar` (zip con el .jar dentro).
+
+**Opcion B, en tu PC:** `gradle build` -> el jar queda en `build/libs/permscmds-1.20.1-1.0.0.jar`.
+
+Despues, copia el .jar a `mods/` del servidor.
 
 ## Archivos (se crean solos en `config/permscmds/`)
 - `permissions.json` grupos y usuarios (se edita con /perm o a mano + `/perm reload`)
-- `settings.json` ajustes: opsBypass, cooldown, tpa, max homes, ping en el tab (`tabShowPing`, `tabRefreshTicks`)
+- `settings.json` ajustes: opsBypass, tpa, max homes, ping en el tab, `/rtp` (`rtpMaxRadius`, `rtpMinRadius`), apodos, limites de `/spawnmob`, `/explode`...
 - `data.json` homes y spawn
 - `custom_commands.json` comandos personalizados (requieren reiniciar o `/reload`)
 
@@ -49,21 +53,16 @@ El prefijo tambien sale en el chat.
 - Los operadores nivel 4 se saltan las comprobaciones (`opsBypass`).
 
 ### Nodos del mod
-| Nodo | Por defecto | Efecto |
-|---|---|---|
-| `permscmds.admin` | no | usar /perm |
-| `permscmds.home` / `permscmds.sethome` | si | /home /homes, /sethome /delhome |
-| `permscmds.spawn` | si | /spawn |
-| `permscmds.setspawn` | no | /setspawn |
-| `permscmds.tpa` | si | /tpa /tpaccept |
-| `permscmds.back` | si | /back |
-| `permscmds.ping` / `permscmds.ping.others` | si / si | /ping [jugador] |
-| `permscmds.fly` / `.others` | no | /vuelo (/fly) [jugador] |
-| `permscmds.god` / `.others` | no | /god [jugador] |
-| `permscmds.heal` / `.others` | no | /heal [jugador] |
-| `permscmds.feed` / `.others` | no | /feed [jugador] |
-| `permscmds.nocooldown` | no | sin espera entre teletransportes |
-| `permscmds.homes.<n>` / `permscmds.homes.unlimited` | - | maximo de homes |
+Cada comando usa el nodo `permscmds.<nombre>`. Los que permiten actuar sobre otros jugadores usan ademas `permscmds.<nombre>.others`.
+
+**Permitidos por defecto a todos:** `home`, `sethome`, `spawn`, `tpa`, `back`, `ping`, `ping.others`, `warp`, `rtp`, `hat`.
+
+**Solo con permiso (u op):** `setspawn`, `fly`, `god`, `heal`, `feed`, `gamemode`, `repair`, `repair.all`,
+`enderchest`, `invsee`, `vanish`, `speed`, `nick`, `superpickaxe`, `top`, `jump`, `spawnmob`, `explode`, `fireball`,
+`cmdblock`, `time`, `weather`, `difficulty`, `setwarp`, `delwarp`, `limitwarp`, `warp.limited`, `admin` (/perm).
+
+Maximo de homes: `permscmds.homes.<n>` o `permscmds.homes.unlimited`.
+`/consolecommand` no usa permisos: solo ops nivel 4 y la consola.
 
 ## Comandos
 ```
@@ -72,12 +71,27 @@ El prefijo tambien sale en el chat.
 /perm user <jugador> info | add|remove <permiso> | setgroup|addgroup|removegroup <grupo>
 /perm check <jugador> <permiso>      /perm reload
 
-/sethome [n]  /home [n]  /delhome <n>  /homes  /spawn  /setspawn
-/back          vuelve a donde estabas antes del ultimo teletransporte o muerte (repetirlo alterna)
-/tpa <jugador>  /tpaccept  /tpdeny
-/vuelo (/fly) [jugador]   activa o desactiva el vuelo
-/ping [jugador]   /heal [jugador]   /feed [jugador]   /god [jugador]
+Teletransporte (sin cooldown):
+/sethome [n] /home [n] /delhome <n> /homes   /spawn /setspawn   /back
+/tpa <j> /tpahere <j> /tpaccept /tpdeny
+/warp <n> /warps /setwarp <n> /delwarp <n> /limitwarp <n> /warpinfo <n>
+/rtp (/wild, /rndtp)   aleatorio, sin limite de radio: solo el borde del mundo (Overworld)
+/top   /jump           arriba del todo / donde miras
+
+Jugador (opcional [jugador] en los que lo admiten):
+/vuelo (/fly) /god /heal /feed /vanish (/v) /speed <0-10|reset> /gm <modo> /gmc /gms /gma /gmsp
+/ping /nick <apodo|off> /hat /repair [all] (/fix) /enderchest (/ec) /invsee <j> /superpickaxe
+
+Mundo y diversion:
+/day /night /sun /rain /thunder   /peaceful /easy /normal /hard
+/spawnmob <mob> [n]   /explode [potencia]   /fireball [potencia]   /cmdblock
+/consolecommand <comando>   (solo ops nivel 4)
 ```
+
+## /rtp sin limite
+Con `rtpMaxRadius: 0` (por defecto) el destino es cualquier punto dentro del borde del mundo (por defecto ±29.999.984).
+Cada intento genera el chunk de destino, asi que el mundo crece rapido y puede notarse un ttiron de lag.
+Para limitarlo, pon `rtpMaxRadius` (y `rtpMinRadius`) en `settings.json` o reduce el borde con `/worldborder set`.
 
 ## Comandos personalizados (ejemplo)
 ```json
@@ -92,4 +106,6 @@ El prefijo tambien sale en el chat.
 ## Notas
 - Los comandos que solo se pueden usar gracias a un permiso (no por ser op) funcionan al escribirlos, pero pueden no salir en el autocompletado.
 - Si en el servidor tienes plugins de Bukkit (Arclight) con comandos iguales (/home, /spawn, /back...), pueden chocar con estos.
+- `/vanish` es una invisibilidad: no oculta al jugador de la lista de jugadores. `/invsee` muestra los 36 huecos (sin armadura).
+- Comandos de MoreCommands que son de cliente (colores arcoiris, Discord, /urban, buscar en el chat...) no se pueden hacer solo en servidor.
 - El vuelo y el modo dios no se aplican en creativo/espectador (ya los tienen).
